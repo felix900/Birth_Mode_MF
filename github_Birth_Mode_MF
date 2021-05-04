@@ -1,0 +1,221 @@
+echo "Data Import"
+#Make the sequences into a qiime recognizable format
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path Manifest_MF.txt \
+  --input-format PairedEndFastqManifestPhred33V2 \
+  --output-path ./qiime_out2/demux.qza
+
+
+qiime demux summarize \
+  --i-data ./qiime_out2/demux.qza \
+  --o-visualization ./qiime_out2/demux.qzv
+
+qiime demux summarize \
+  --i-data ./qiime_out2/demux.qza \
+  --o-visualization ./qiime_out2/demux.qzv
+
+
+echo "dada2"
+
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs ./qiime_out2/demux.qza \
+  --p-trim-left-f 0 \
+  --p-trim-left-r 0 \
+  --p-trunc-len-f 270 \
+  --p-trunc-len-r 180 \
+  --o-representative-sequences ./qiime_out2/rep-seqs.qza \
+  --o-table ./qiime_out2/table.qza \
+  --o-denoising-stats ./qiime_out2/stats-dada2.qza
+
+
+#Convert .qza to .qzv format
+
+qiime metadata tabulate \
+  --m-input-file ./qiime_out2/stats-dada2.qza \
+  --o-visualization ./qiime_out2/stats-dada2.qzv
+
+#Create a .qzv from the output of denoise
+qiime feature-table summarize \
+  --i-table ./qiime_out2/table.qza \
+  --o-visualization ./qiime_out2/table.qzv \
+  --m-sample-metadata-file metadata.txt
+  
+  qiime feature-table tabulate-seqs \
+  --i-data ./qiime_out2/rep-seqs.qza \
+ --o-visualization ./qiime_out2/rep-seqs.qzv
+
+#Convert .qza to .qzv format
+
+qiime metadata tabulate \
+  --m-input-file ./qiime_out2/stats-dada2.qza \
+  --o-visualization ./qiime_out2/stats-dada2.qzv
+
+
+#Create a .qzv from the output of denoise
+qiime feature-table summarize \
+  --i-table ./qiime_out2/table.qza \
+  --o-visualization ./qiime_out2/table.qzv \
+  --m-sample-metadata-file metadata.txt
+qiime feature-table tabulate-seqs \
+  --i-data ./qiime_out2/rep-seqs.qza \
+ --o-visualization ./qiime_out2/rep-seqs.qzv
+
+#Convert .qza to .qzv format
+
+qiime metadata tabulate \
+  --m-input-file ./qiime_out2/stats-dada2.qza \
+  --o-visualization ./qiime_out2/stats-dada2.qzv
+
+
+#Create a .qzv from the output of denoise
+qiime feature-table summarize \
+  --i-table ./qiime_out2/table.qza \
+  --o-visualization ./qiime_out2/table.qzv \
+  --m-sample-metadata-file metadata.txt
+
+qiime feature-table tabulate-seqs \
+  --i-data ./qiime_out2/rep-seqs.qza \
+  --o-visualization ./qiime_out2/rep-seqs.qzv
+  
+  echo "Create a phylogenetic tree. (Phylogenetic method)"
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences ./qiime_out2/rep-seqs.qza \
+  --o-alignment ./qiime_out2/aligned-rep-seqs.qza \
+  --o-masked-alignment ./qiime_out2/masked-aligned-rep-seqs.qza \
+  --o-tree ./qiime_out2/unrooted-tree.qza \
+  --o-rooted-tree ./qiime_out2/rooted-tree.qza
+
+echo "Rarefaction"
+qiime diversity alpha-rarefaction \
+  --i-table ./qiime_out2/table.qza \
+  --i-phylogeny ./qiime_out2/rooted-tree.qza \
+  --p-max-depth 5000 \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/alpha-rarefaction.qzv
+
+
+#Calculate diversity metrics. You will need to designate a sampling depth. You might want to consult the rarifaction output prior to this step.
+qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny ./qiime_out2/rooted-tree.qza \
+  --i-table ./qiime_out2/table.qza \
+  --p-sampling-depth 2417 \
+  --m-metadata-file metadata.txt \
+  --output-dir ./qiime_out2/core-metrics-results
+
+#Statistical testing
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity ./qiime_out2/core-metrics-results/faith_pd_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/core-metrics-results/faith-pd-group-significance.qzv
+  
+  qiime diversity alpha-group-significance \
+  --i-alpha-diversity ./qiime_out2/core-metrics-results/evenness_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/core-metrics-results/evenness-group-significance.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity ./qiime_out2/core-metrics-results/shannon_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/core-metrics-results/shannon-group-significance.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity ./qiime_out2/core-metrics-results/observed_features_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/core-metrics-results/observed_features-group-significance.qzv
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix ./qiime_out2/core-metrics-results/unweighted_unifrac_distance_matrix.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column delivery_mode \
+  --o-visualization ./qiime_out2/core-metrics-results/unweighted-unifrac-delivery_mode-significance.qzv \
+  --p-pairwise
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix ./qiime_out2/core-metrics-results/unweighted_unifrac_distance_matrix.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column gender \
+  --o-visualization ./qiime_out2/core-metrics-results/unweighted-unifrac-gender-group-significance.qzv \
+  --p-pairwise
+
+#Make ordination
+qiime emperor plot \
+  --i-pcoa ./qiime_out2/core-metrics-results/unweighted_unifrac_pcoa_results.qza \
+  --m-metadata-file metadata.txt \
+  --p-custom-axes sample_time_in_weeks \
+  --o-visualization ./qiime_out2/core-metrics-results/unweighted-unifrac-emperor-sample_time_in_weeks.qzv
+
+#Make ordination
+qiime emperor plot \
+  --i-pcoa ./qiime_out2/core-metrics-results/unweighted_unifrac_pcoa_results.qza \
+  --m-metadata-file metadata.txt \
+  --p-custom-axes sample_time_in_weeks \
+  --o-visualization ./qiime_out2/core-metrics-results/unweighted-unifrac-emperor-sample_time_in_weeks.qzv
+
+
+qiime emperor plot \
+  --i-pcoa ./qiime_out2/core-metrics-results/bray_curtis_pcoa_results.qza \
+  --m-metadata-file metadata.txt \
+  --p-custom-axes gravida \
+  --o-visualization ./qiime_out2/core-metrics-results/bray-curtis-emperor-gravida.qzv
+
+
+
+echo "Classify and get .qzv"
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-classifier-v4_v5.qza \
+  --i-reads ./qiime_out2/rep-seqs.qza \
+  --o-classification ./qiime_out2/taxonomy.qza
+
+qiime metadata tabulate \
+  --m-input-file ./qiime_out2/taxonomy.qza \
+  --o-visualization ./qiime_out2/taxonomy.qzv
+
+echo "Make a stacked barplot"
+qiime taxa barplot \
+  --i-table ./qiime_out2/table.qza \
+  --i-taxonomy ./qiime_out2/taxonomy.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization ./qiime_out2/taxa-bar-plots.qzv
+
+echo "Filter away some sample types and do ancom"
+qiime feature-table filter-samples \
+  --i-table ./qiime_out2/table.qza \
+  --m-metadata-file metadata.txt \
+  --p-where "[body-site]='gut'" \
+  --o-filtered-table ./qiime_out2/gut-table.qza
+
+qiime composition add-pseudocount \
+  --i-table ./qiime_out2/table.qza \
+  --o-composition-table ./qiime_out2/comp-table.qza
+
+qiime composition ancom \
+  --i-table ./qiime_out2/comp-table.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column delivery_mode \
+  --o-visualization ./qiime_out2/ancom-delivery_mode.qzv
+
+echo "Collapse levels and ancom again."
+
+#qiime taxa collapse \
+#  --i-table ./qiime_out2/table.qza \
+#  --i-taxonomy ./qiime_out2/taxonomy.qza \
+#  --p-level 6 \
+#  --o-collapsed-table ./qiime_out2/table-l6.qza
+
+#qiime composition add-pseudocount \
+#  --i-table ./qiime_out2/table-l6.qza \
+#  --o-composition-table ./qiime_out2/comp-table-l6.qza
+
+qiime composition ancom \
+  --i-table ./qiime_out2/comp-table-l6.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column delivery_mode \
+  --o-visualization ./qiime_out2/l6-ancom-delivery_mode.qzv
+
+
+echo "End time"
+date +"%d %B %Y %H:%M:%S"
+
+#to run: sbatch qiime_pipeline.slurm
